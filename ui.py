@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from game import Game
+from computer_player_ai import ComputerPlayerAI
 import time
 
 
@@ -11,8 +12,10 @@ class CluedoUI:
         self.root.geometry("1000x780")
 
         self.game = Game()
+        self.computer_ai = ComputerPlayerAI()
         self.current_player_index = 0
         self.game_over = False
+        self.ai_turn_in_progress = False
 
         self.tracker = {
             "Suspects": {character.name: "?" for character in self.game.characters},
@@ -381,12 +384,17 @@ class CluedoUI:
             messagebox.showinfo("Game Over", "The game has already ended.")
             return
 
+        current_player = self.game.players[self.current_player_index]
+
+        if self.is_computer_player(current_player):
+            messagebox.showinfo("Computer Turn", "Please wait. The computer player is taking its turn.")
+            return
+
         clicked_room = self.get_room_from_click(event.x, event.y)
 
         if not clicked_room:
             return
 
-        current_player = self.game.players[self.current_player_index]
         current_room = current_player.character.current_room
 
         valid_moves = self.game.mansion.get_adjacent_rooms(current_room)
@@ -606,6 +614,55 @@ class CluedoUI:
             "\n".join(current_player.cards)
         )
 
+    def is_computer_player(self, player):
+        return player.name.startswith("Computer Player")
+
+    def run_computer_turn_if_needed(self):
+        if self.game_over or self.ai_turn_in_progress:
+            return
+
+        current_player = self.game.players[self.current_player_index]
+
+        if not self.is_computer_player(current_player):
+            return
+
+        self.ai_turn_in_progress = True
+        self.root.after(750, self.run_computer_turn)
+
+    def run_computer_turn(self):
+        if self.game_over:
+            self.ai_turn_in_progress = False
+            return
+
+        current_player = self.game.players[self.current_player_index]
+
+        if not self.is_computer_player(current_player):
+            self.ai_turn_in_progress = False
+            return
+
+        current_room = current_player.character.current_room
+        selected_room = self.computer_ai.choose_room(current_player, self.game.mansion)
+
+        if selected_room is None:
+            self.log_message(f"{current_player.name} has no valid moves and skips movement.")
+        else:
+            self.animate_move(current_player, selected_room)
+            self.log_message(f"{current_player.name} moved from {current_room} to {selected_room}.")
+
+        character, weapon, room = self.computer_ai.choose_suggestion(current_player, self.game)
+
+        self.log_message(
+            f"{current_player.name} suggests: {character} with the {weapon} in the {room}."
+        )
+
+        self.update_tracker(character, weapon, room)
+
+        result = self.refute_suggestion(current_player, character, weapon, room)
+        self.log_message(result)
+
+        self.ai_turn_in_progress = False
+        self.root.after(750, self.next_turn)
+
     def next_turn(self):
         if self.game_over:
             return
@@ -615,6 +672,7 @@ class CluedoUI:
         ) % len(self.game.players)
 
         self.refresh_ui()
+        self.run_computer_turn_if_needed()
 
     def refresh_ui(self):
         current_player = self.game.players[self.current_player_index]
@@ -629,9 +687,12 @@ class CluedoUI:
                 text=f"Turn: {current_player.name} | Room: {current_player.character.current_room}"
             )
 
-            self.highlighted_rooms = self.game.mansion.get_adjacent_rooms(
-                current_player.character.current_room
-            )
+            if self.is_computer_player(current_player):
+                self.highlighted_rooms = []
+            else:
+                self.highlighted_rooms = self.game.mansion.get_adjacent_rooms(
+                    current_player.character.current_room
+                )
 
         self.draw_board()
 
