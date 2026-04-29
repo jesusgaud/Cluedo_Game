@@ -118,7 +118,7 @@ python main.py
 
 cd JesusGaud_Project2_SourceCode
 python ui.py
-
+```
 ---
 
 ## 🎯 Gameplay Instructions
@@ -166,10 +166,11 @@ Tkinter (included with standard Python)
 ## 🌐 GitHub Repository
 
 Clone the repository:
+```bash
 git clone https://github.com/jesusgaud/Cluedo_Game.git
 cd Cluedo_Game
 python ui.py
-
+```
 ---
 
 ## 🧱 Development Practices
