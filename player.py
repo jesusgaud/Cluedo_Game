@@ -1,9 +1,21 @@
+from deduction_notebook import DeductionNotebook
+
+
 class Player:
     def __init__(self, name, character):
         self.name = name
         self.character = character
         self.cards = []
         self.notes = []
+        self.notebook = None
+
+    def initialize_notebook(self, character_names, weapon_names, room_names):
+        self.notebook = DeductionNotebook(
+            character_names,
+            weapon_names,
+            room_names
+        )
+        self.notebook.record_owned_cards(self.cards)
 
     def move(self, mansion, room):
         current_room = self.character.current_room
@@ -17,6 +29,9 @@ class Player:
 
     def add_card(self, card):
         self.cards.append(card)
+
+        if self.notebook is not None:
+            self.notebook.eliminate_card(card)
 
     def add_note(self, note):
         self.notes.append(note)

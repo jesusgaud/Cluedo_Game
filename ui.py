@@ -17,6 +17,17 @@ class CluedoUI:
         self.game_over = False
         self.ai_turn_in_progress = False
 
+        character_names = [character.name for character in self.game.characters]
+        weapon_names = [weapon.name for weapon in self.game.weapons]
+        room_names = self.game.mansion.get_rooms()
+
+        for player in self.game.players:
+            player.initialize_notebook(
+                character_names,
+                weapon_names,
+                room_names
+            )
+
         self.tracker = {
             "Suspects": {character.name: "?" for character in self.game.characters},
             "Weapons": {weapon.name: "?" for weapon in self.game.weapons},
@@ -512,13 +523,17 @@ class CluedoUI:
             if matching_cards:
                 shown_card = matching_cards[0]
 
-                if suggesting_player == self.game.player:
-                    suggesting_player.add_note(f"{player.name} showed {shown_card}")
+                suggesting_player.add_note(f"{player.name} showed {shown_card}")
+
+                if suggesting_player.notebook is not None:
+                    suggesting_player.notebook.record_shown_card(shown_card)
 
                 return f"{player.name} refuted the suggestion by showing: {shown_card}."
 
-        if suggesting_player == self.game.player:
-            suggesting_player.add_note(f"No refutation: {character}, {weapon}, {room}")
+        suggesting_player.add_note(f"No refutation: {character}, {weapon}, {room}")
+
+        if suggesting_player.notebook is not None:
+            suggesting_player.notebook.record_unrefuted_suggestion(character, weapon, room)
 
         return "No player could refute the suggestion."
 
@@ -638,6 +653,39 @@ class CluedoUI:
 
         if not self.is_computer_player(current_player):
             self.ai_turn_in_progress = False
+            return
+
+        if self.computer_ai.should_accuse(current_player):
+            character, weapon, room = self.computer_ai.choose_accusation(
+                current_player,
+                self.game
+            )
+
+            self.log_message(
+                f"{current_player.name} makes an AI accusation: {character} with the {weapon} in the {room}."
+            )
+
+            self.update_tracker(character, weapon, room)
+
+            if self.game.solution.check_guess(character, weapon, room):
+                messagebox.showinfo("Game Over", f"{current_player.name} wins! Correct accusation.")
+                self.log_message(f"GAME OVER: {current_player.name} solved the mystery.")
+            else:
+                solution = (
+                    f"{self.game.solution.character.name}, "
+                    f"{self.game.solution.weapon.name}, "
+                    f"{self.game.solution.room}"
+                )
+                messagebox.showinfo(
+                    "Game Over",
+                    f"Incorrect AI accusation.\nCorrect solution: {solution}"
+                )
+                self.log_message(f"GAME OVER: Incorrect AI accusation. Correct solution: {solution}")
+
+            self.game_over = True
+            self.canvas.unbind("<Button-1>")
+            self.ai_turn_in_progress = False
+            self.refresh_ui()
             return
 
         current_room = current_player.character.current_room
